@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDFS Cloud Drive — Dashboard</title>
+    <meta name="description" content="HDFS Cloud Drive - Quản lý file lưu trữ trên Apache HDFS">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================
+           DESIGN SYSTEM - Variables & Reset
+           ============================================ */
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --bg-hover: #30363d;
+            --border: #30363d;
+            --border-light: rgba(48,54,61,0.5);
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --accent: #388bfd;
+            --accent-light: rgba(56,139,253,0.15);
+            --accent-glow: rgba(56,139,253,0.3);
+            --success: #3fb950;
+            --success-light: rgba(63,185,80,0.15);
+            --warning: #d29922;
+            --warning-light: rgba(210,153,34,0.15);
+            --danger: #f85149;
+            --danger-light: rgba(248,81,73,0.15);
+            --purple: #bc8cff;
+            --purple-light: rgba(188,140,255,0.15);
+            --sidebar-width: 240px;
+            --header-height: 60px;
+            --radius: 10px;
+            --radius-lg: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* ============================================
+           SIDEBAR
+           ============================================ */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            position: fixed;
+            left: 0; top: 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-logo {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon-sm {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, #1f6feb, #388bfd);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(56,139,253,0.3);
+        }
+
+        .logo-text {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .logo-text span {
+            display: block;
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        /* Nav */
+        .nav-section {
+            padding: 12px 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .nav-label {
+            padding: 6px 20px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 20px;
+            cursor: pointer;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-radius: 0;
+            transition: all 0.15s ease;
+            position: relative;
+            margin: 1px 8px;
+            border-radius: 8px;
+            text-decoration: none;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent-light);
+            color: var(--accent);
+        }
+
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 3px; height: 18px;
+            background: var(--accent);
+            border-radius: 0 3px 3px 0;
+            margin-left: -8px;
+        }
+
+        .nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+
+        /* HDFS Status indicator in sidebar */
+        .hdfs-status-bar {
+            padding: 12px 16px;
+            margin: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .hdfs-status-bar .label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .hdfs-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .dot.online { background: var(--success); animation: blink 2s ease-in-out infinite; }
+        .dot.offline { background: var(--danger); }
+        .dot.checking { background: var(--warning); animation: blink 1s ease-in-out infinite; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Sidebar footer */
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .user-card:hover { background: var(--bg-hover); }
+
+        .user-avatar {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #388bfd, #bc8cff);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .user-info { flex: 1; min-width: 0; }
+        .user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); truncate: ellipsis; white-space: nowrap; overflow: hidden; }
+        .user-role { font-size: 11px; color: var(--text-secondary); }
+
+        /* ============================================
+           MAIN CONTENT
+           ============================================ */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            height: var(--header-height);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-left h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .header-left p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Upload button in header */
+        .btn-upload-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #1f6feb, #388bfd);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-upload-header:hover {
+            background: linear-gradient(135deg, #388bfd, #58a6ff);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        /* Page content */
+        .page-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        /* Views */
+        .view { display: none; animation: fadeIn 0.3s ease; }
+        .view.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================
+           STATS CARDS
+           ============================================ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(88,166,255,0.3);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0;
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.15;
+        }
+
+        .stat-card.blue::before { background: var(--accent); }
+        .stat-card.green::before { background: var(--success); }
+        .stat-card.orange::before { background: var(--warning); }
+        .stat-card.purple::before { background: var(--purple); }
+
+        .stat-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            letter-spacing: -1px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .badge-success { background: var(--success-light); color: var(--success); }
+        .badge-danger  { background: var(--danger-light);  color: var(--danger); }
+        .badge-warning { background: var(--warning-light); color: var(--warning); }
+        .badge-accent  { background: var(--accent-light);  color: var(--accent); }
+
+        /* ============================================
+           SECTION HEADERS
+           ============================================ */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .section-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* ============================================
+           FILE TABLE
+           ============================================ */
+        .files-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .search-box {
+            flex: 1;
+            max-width: 320px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 9px 16px 9px 38px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus { border-color: var(--accent); }
+        .search-box input::placeholder { color: var(--text-muted); }
+
+        .search-icon {
+            position: absolute;
+            left: 12px; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .table-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-tertiary);
+        }
+
+        tbody tr {
+            border-bottom: 1px solid var(--border-light);
+            transition: background 0.15s;
+        }
+
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(48,54,61,0.3); }
+
+        tbody td {
+            padding: 13px 16px;
+            font-size: 13px;
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        .file-icon { font-size: 20px; margin-right: 4px; }
+
+        .file-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-name-text {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .file-path {
+            font-size: 11px;
+            color: var(--accent);
+            font-family: 'Courier New', monospace;
+            margin-top: 2px;
+        }
+
+        .size-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+
+        /* Action buttons */
+        .actions { display: flex; gap: 6px; }
+
+        .btn-action {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-action:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+        .btn-action.btn-download:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+        .btn-action.btn-share:hover   { background: var(--success-light); color: var(--success); border-color: var(--success); }
+        .btn-action.btn-delete:hover  { background: var(--danger-light);  color: var(--danger);  border-color: var(--danger); }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        .empty-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+        .empty-desc { font-size: 13px; color: var(--text-muted); }
+
+        /* ============================================
+           HDFS STATUS PAGE
+           ============================================ */
+        .hdfs-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .hdfs-stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+        }
+
+        .hdfs-stat-card .label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .hdfs-stat-card .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .hdfs-stat-card .sublabel {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Progress bar */
+        .storage-bar {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .storage-bar-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .storage-bar-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .progress-track {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            height: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #58a6ff);
+            border-radius: 6px;
+            transition: width 0.8s ease;
+        }
+
+        /* Connection status banner */
+        .connection-banner {
+            padding: 14px 20px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .connection-banner.connected {
+            background: var(--success-light);
+            border: 1px solid rgba(63,185,80,0.3);
+            color: var(--success);
+        }
+
+        .connection-banner.disconnected {
+            background: var(--danger-light);
+            border: 1px solid rgba(248,81,73,0.3);
+            color: var(--danger);
+        }
+
+        .connection-banner.loading {
+            background: var(--warning-light);
+            border: 1px solid rgba(210,153,34,0.3);
+            color: var(--warning);
+        }
+
+        /* HDFS files list */
+        .hdfs-files-list {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .hdfs-file-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 13px;
+        }
+
+        .hdfs-file-row:last-child { border-bottom: none; }
+        .hdfs-file-row:hover { background: rgba(48,54,61,0.3); }
+
+        .hdfs-file-name {
+            flex: 1;
+            font-family: 'Courier New', monospace;
+            color: var(--text-primary);
+        }
+
+        .hdfs-file-meta {
+            display: flex;
+            gap: 20px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        /* ============================================
+           UPLOAD MODAL
+           ============================================ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.show { display: flex; }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            width: 100%;
+            max-width: 460px;
+            animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .modal-title { font-size: 18px; font-weight: 700; }
+        .modal-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px; padding: 4px; }
+        .modal-close:hover { color: var(--text-primary); }
+
+        /* Drop zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-lg);
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-tertiary);
+            position: relative;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-light);
+        }
+
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop-icon { font-size: 36px; margin-bottom: 12px; }
+        .drop-text { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+        .drop-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+        /* Upload progress */
+        .upload-progress { display: none; margin-top: 16px; }
+        .upload-progress .file-name { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-hover);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #58a6ff);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: progressPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes progressPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* ============================================
+           TOAST NOTIFICATIONS
+           ============================================ */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            padding: 14px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            max-width: 360px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .toast.success { background: #1a3a1e; border: 1px solid var(--success); color: var(--success); }
+        .toast.error   { background: #3a1a1a; border: 1px solid var(--danger);  color: var(--danger); }
+        .toast.info    { background: #1a2a3a; border: 1px solid var(--accent);  color: var(--accent); }
+        .toast.warning { background: #2a2215; border: 1px solid var(--warning); color: var(--warning); }
+
+        /* ============================================
+           SHARE MODAL
+           ============================================ */
+        .share-url-box {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .share-url-box input {
+            flex: 1;
+            padding: 10px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 12px;
+            font-family: monospace;
+            outline: none;
+        }
+
+        .btn-copy {
+            padding: 10px 16px;
+            background: var(--accent-light);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-copy:hover { background: var(--accent); color: white; }
+
+        /* General buttons */
+        .btn {
+            padding: 9px 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn:hover { background: var(--bg-hover); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1f6feb, #388bfd);
+            border-color: transparent;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #388bfd, #58a6ff);
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+
+        .btn-danger-btn {
+            background: var(--danger-light);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .btn-danger-btn:hover { background: var(--danger); color: white; }
+
+        /* Loading spinner */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            gap: 12px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 20px; height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Code/path display */
+        .code-path {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--accent);
+            background: var(--bg-tertiary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            word-break: break-all;
+        }
+
+        /* Info card */
+        .info-card {
+            background: var(--accent-light);
+            border: 1px solid rgba(88,166,255,0.2);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            font-size: 13px;
+            color: var(--accent);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            :root { --sidebar-width: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- ========== SIDEBAR ========== -->
+    <nav class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-box">
+                <div class="logo-icon-sm">🗄️</div>
+                <div class="logo-text">
+                    HDFS Cloud Drive
+                    <span>Apache Hadoop Demo</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">Menu</div>
+            <a class="nav-item active" id="nav-dashboard" onclick="showView('dashboard')">
+                <span class="nav-icon">📊</span> Dashboard
+            </a>
+            <a class="nav-item" id="nav-files" onclick="showView('files')">
+                <span class="nav-icon">📁</span> My Files
+            </a>
+            <a class="nav-item" id="nav-shared" onclick="showView('shared')">
+                <span class="nav-icon">🔗</span> Shared Files
+            </a>
+
+            <div class="nav-label">HDFS</div>
+            <a class="nav-item" id="nav-hdfs" onclick="showView('hdfs')">
+                <span class="nav-icon">💾</span> HDFS Status
+            </a>
+        </div>
+
+        <!-- HDFS connection status -->
+        <div style="padding: 0 8px 8px;">
+            <div class="hdfs-status-bar">
+                <div class="label">HDFS Connection</div>
+                <div class="hdfs-indicator" id="sidebarHdfsStatus">
+                    <div class="dot checking"></div>
+                    <span>Kiểm tra...</span>
+                </div>
+                <div style="font-size:10px; color: var(--text-muted); margin-top: 4px;">
+                    localhost:9870
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-card" onclick="logout()">
+                <div class="user-avatar" id="userAvatar">A</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarUsername">Admin</div>
+                    <div class="user-role">Đăng xuất →</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <h2 id="pageTitle">Dashboard</h2>
+                <p id="pageSubtitle">Tổng quan hệ thống</p>
+            </div>
+            <div class="header-right">
+                <button class="btn-upload-header" onclick="openUploadModal()">
+                    ⬆️ Upload File
+                </button>
+            </div>
+        </div>
+
+        <div class="page-content">
+
+            <!-- ======================================
+                 VIEW: DASHBOARD
+                 ====================================== -->
+            <div id="view-dashboard" class="view active">
+                <!-- Stats cards -->
+                <div class="stats-grid">
+                    <div class="stat-card blue">
+                        <div class="stat-icon">📁</div>
+                        <div class="stat-value" id="statTotalFiles">—</div>
+                        <div class="stat-label">Tổng số file</div>
+                        <div class="stat-badge badge-accent">MySQL metadata</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon">💿</div>
+                        <div class="stat-value" id="statTotalStorage">—</div>
+                        <div class="stat-label">Tổng dung lượng</div>
+                        <div class="stat-badge badge-success">Lưu trên HDFS</div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-icon">🖥️</div>
+                        <div class="stat-value" id="statDataNodes">—</div>
+                        <div class="stat-label">DataNodes</div>
+                        <div class="stat-badge badge-warning">HDFS Cluster</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon">💾</div>
+                        <div class="stat-value" id="statHdfsStatus">—</div>
+                        <div class="stat-label">HDFS</div>
+                        <div class="stat-badge badge-accent" id="statHdfsBadge">Đang kiểm tra</div>
+                    </div>
+                </div>
+
+                <!-- Architecture diagram -->
+                <div class="info-card">
+                    <strong>📐 Kiến trúc hệ thống:</strong>
+                    User → Frontend → <strong>Spring Boot REST API</strong> → <strong>MySQL</strong> (metadata) + <strong>HDFS</strong> (file thực tế)<br>
+                    <small>Khi bạn upload file: Spring Boot ghi file vào HDFS, sau đó lưu metadata (tên, kích thước, đường dẫn HDFS) vào MySQL.</small>
+                </div>
+
+                <!-- Recent files -->
+                <div class="section-header">
+                    <div>
+                        <div class="section-title">📋 File gần đây</div>
+                        <div class="section-subtitle">5 file được upload mới nhất</div>
+                    </div>
+                    <button class="btn" onclick="showView('files')">Xem tất cả →</button>
+                </div>
+                <div class="table-container" id="recentFilesTable">
+                    <div class="loading"><div class="spinner"></div> Đang tải...</div>
+                </div>
+            </div>
+
+            <!-- ======================================
+                 VIEW: MY FILES
+                 ====================================== -->
+            <div id="view-files" class="view">
+                <div class="files-toolbar">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchInput" placeholder="Tìm kiếm file..."
+                               oninput="filterFiles(this.value)">
+                    </div>
+                    <button class="btn-upload-header" onclick="openUploadModal()">⬆️ Upload File</button>
+                    <button class="btn" onclick="loadFiles()">🔄 Làm mới</button>
+                </div>
+
+                <div class="table-container" id="filesTableContainer">
+                    <div class="loading"><div class="spinner"></div> Đang tải...</div>
+                </div>
+            </div>
+
+            <!-- ======================================
+                 VIEW: SHARED FILES
+                 ====================================== -->
+            <div id="view-shared" class="view">
+                <div class="info-card">
+                    🔗 <strong>Share Links</strong> — Tạo link chia sẻ để người khác download file mà không cần đăng nhập.
+                    Link chia sẻ có thời hạn 7 ngày và được lưu trong MySQL.
+                </div>
+                <div class="table-container" id="sharedLinksContainer">
+                    <div class="empty-state">
+                        <div class="empty-icon">🔗</div>
+                        <div class="empty-title">Chưa có share link nào</div>
+                        <div class="empty-desc">Vào "My Files" và nhấn "Share" để tạo link chia sẻ</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================================
+                 VIEW: HDFS STATUS
+                 ====================================== -->
+            <div id="view-hdfs" class="view">
+                <!-- Connection status banner -->
+                <div id="hdfsConnectionBanner" class="connection-banner loading">
+                    <div class="spinner"></div>
+                    <span>Đang kết nối đến HDFS NameNode...</span>
+                </div>
+
+                <!-- Cluster info cards -->
+                <div class="hdfs-status-grid" id="hdfsClusterInfo">
+                    <div class="hdfs-stat-card">
+                        <div class="label">NameNode</div>
+                        <div class="value" style="font-size:16px; font-family:monospace;" id="hdfsNameNode">—</div>
+                        <div class="sublabel">Web UI: localhost:9870</div>
+                    </div>
+                    <div class="hdfs-stat-card">
+                        <div class="label">HDFS Root Path</div>
+                        <div class="value" style="font-size:16px; font-family:monospace;" id="hdfsRootPath">—</div>
+                        <div class="sublabel">Thư mục lưu file</div>
+                    </div>
+                    <div class="hdfs-stat-card">
+                        <div class="label">DataNodes</div>
+                        <div class="value" id="hdfsDataNodes">—</div>
+                        <div class="sublabel">Đang hoạt động</div>
+                    </div>
+                    <div class="hdfs-stat-card">
+                        <div class="label">Files trên HDFS</div>
+                        <div class="value" id="hdfsFileCount">—</div>
+                        <div class="sublabel">Trong /cloud-drive</div>
+                    </div>
+                </div>
+
+                <!-- Storage progress bar -->
+                <div class="storage-bar">
+                    <div class="storage-bar-header">
+                        <span class="storage-bar-title">💿 Dung lượng HDFS Cluster</span>
+                        <span id="hdfsUsedPercent" style="font-size:13px; color: var(--text-secondary);">Đang tải...</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="hdfsStorageBar" style="width: 0%"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:var(--text-secondary);">
+                        <span>Đã dùng: <strong id="hdfsUsed">—</strong></span>
+                        <span>Còn lại: <strong id="hdfsRemaining">—</strong></span>
+                        <span>Tổng: <strong id="hdfsCapacity">—</strong></span>
+                    </div>
+                </div>
+
+                <!-- Files on HDFS -->
+                <div class="section-header">
+                    <div>
+                        <div class="section-title">📂 Danh sách file trên HDFS</div>
+                        <div class="section-subtitle" id="hdfsFilesSubtitle">Thư mục /cloud-drive</div>
+                    </div>
+                    <button class="btn" onclick="loadHdfsStatus()">🔄 Làm mới</button>
+                </div>
+                <div class="hdfs-files-list" id="hdfsFilesList">
+                    <div class="loading"><div class="spinner"></div> Đang tải...</div>
+                </div>
+
+                <!-- Info box about HDFS -->
+                <div style="margin-top: 20px;">
+                    <div class="info-card" style="background: rgba(63,185,80,0.08); border-color: rgba(63,185,80,0.2); color: #3fb950;">
+                        💡 <strong>Để xem HDFS Web UI đầy đủ:</strong>
+                        Mở trình duyệt và truy cập <a href="http://localhost:9870" target="_blank"
+                        style="color: #3fb950; font-weight: 700;">http://localhost:9870</a>
+                        → Vào "Utilities" → "Browse the file system" → Xem thư mục <code>/cloud-drive</code>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end page-content -->
+    </main>
+
+    <!-- ========== UPLOAD MODAL ========== -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">⬆️ Upload File lên HDFS</div>
+                <button class="modal-close" onclick="closeUploadModal()">✕</button>
+            </div>
+
+            <div class="info-card" style="margin-bottom:16px;">
+                File sẽ được lưu tại HDFS path: <span class="code-path">/cloud-drive/{tên-file}</span>
+                Metadata sẽ được lưu vào MySQL.
+            </div>
+
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="fileInput" onchange="handleFileSelect(this)">
+                <div class="drop-icon">📎</div>
+                <div class="drop-text">Kéo thả file vào đây hoặc nhấn để chọn</div>
+                <div class="drop-hint">Hỗ trợ mọi loại file · Tối đa 500MB</div>
+            </div>
+
+            <div class="upload-progress" id="uploadProgress">
+                <div class="file-name" id="uploadFileName">Đang upload...</div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progressBarFill"></div>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:6px;" id="uploadStatus">Đang gửi lên HDFS...</div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" id="uploadBtn" onclick="uploadFile()" disabled>⬆️ Upload</button>
+                <button class="btn" onclick="closeUploadModal()">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== SHARE MODAL ========== -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">🔗 Share Link</div>
+                <button class="modal-close" onclick="closeShareModal()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary); font-size:13px; margin-bottom:16px;">
+                Link này cho phép download file mà không cần đăng nhập. Hiệu lực 7 ngày.
+            </p>
+            <div class="share-url-box">
+                <input type="text" id="shareUrlInput" readonly>
+                <button class="btn-copy" onclick="copyShareLink()">📋 Copy</button>
+            </div>
+            <div style="margin-top:12px; font-size:12px; color:var(--text-muted);">
+                Hết hạn: <span id="shareExpiry"></span>
+            </div>
+            <div style="margin-top:16px;">
+                <button class="btn" onclick="closeShareModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== DELETE CONFIRM MODAL ========== -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">🗑️ Xác nhận xóa file</div>
+                <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+            </div>
+            <p style="color:var(--text-secondary); font-size:14px; line-height:1.6; margin-bottom:20px;">
+                Bạn sắp xóa file: <strong id="deleteFileName" style="color:var(--text-primary);"></strong><br>
+                <span style="color:var(--danger);">⚠️ Hành động này sẽ xóa file khỏi cả HDFS và MySQL và không thể hoàn tác!</span>
+            </p>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-danger-btn" onclick="confirmDelete()">🗑️ Xác nhận xóa</button>
+                <button class="btn" onclick="closeDeleteModal()">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== TOAST CONTAINER ========== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/auth.js"></script>
+    <script src="js/files.js"></script>
+    <script src="js/hdfs-status.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+python_backend/hdfs_cloud_drive.db
+python_backend/uploads/
+.vscode/
+.idea/
+target/
+*.class
