@@ -105,9 +105,6 @@ function renderFileTable(files, compact = false) {
                     </td>
                     <td>
                         <div class="actions">
-                            <button class="btn-action" style="background:rgba(188,140,255,0.15); color:#bc8cff; border:1px solid rgba(188,140,255,0.3);" onclick="showView('mapreduce'); executeMapReduceJob('${encodeURIComponent(fname)}', ${fsize});">
-                                ⚡ MapReduce
-                            </button>
                             <button class="btn-action btn-download" onclick="downloadFile(${file.id}, '${escapeHtml(fname)}')">
                                 ⬇️ Download
                             </button>
@@ -485,21 +482,10 @@ function showBlockDetails(fileNameOrEncoded, fileSize) {
             <div style="max-height:360px; overflow-y:auto; padding-right:4px;">
                 ${blocksHtml}
             </div>
-            <div class="modal-footer" style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
-                <button class="btn" style="background:linear-gradient(135deg, #1f6feb, #388bfd); color:white; font-weight:700; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;" onclick="runMapReduceForFile('${encodeURIComponent(fileName)}', ${fileSize})">
-                    ⚡ Chạy MapReduce trên File này
-                </button>
+            <div class="modal-footer" style="margin-top:16px; display:flex; justify-content:flex-end;">
                 <button class="btn btn-secondary" style="padding:8px 16px; border-radius:8px; cursor:pointer;" onclick="document.getElementById('blockModal').remove()">Đóng cửa sổ</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
-}
-
-function runMapReduceForFile(encodedFileName, fileSize) {
-    const fileName = decodeURIComponent(encodedFileName);
-    const modal = document.getElementById('blockModal');
-    if (modal) modal.remove();
-    showView('mapreduce');
-    executeMapReduceJob(fileName, fileSize);
 }

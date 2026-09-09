@@ -29,11 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // ================================================
 
 const viewConfig = {
-    'dashboard': { title: 'Dashboard',     subtitle: 'Tổng quan hệ thống' },
-    'files':     { title: 'My Files',      subtitle: 'Quản lý file lưu trữ trên HDFS' },
-    'shared':    { title: 'Shared Files',  subtitle: 'Link chia sẻ file công khai' },
-    'hdfs':      { title: 'HDFS Status',   subtitle: 'Trạng thái Apache HDFS Cluster' },
-    'mapreduce': { title: 'MapReduce Engine', subtitle: '⚡ Distributed Data Processing & Log Analytics' }
+    'dashboard': { title: 'Dashboard',       subtitle: 'Tổng quan hệ thống' },
+    'files':     { title: 'My Files',        subtitle: 'Quản lý file lưu trữ trên HDFS' },
+    'shared':    { title: 'Shared Files',    subtitle: 'Link chia sẻ file công khai' },
+    'hdfs':      { title: 'HDFS Status',     subtitle: 'Trạng thái Apache HDFS Cluster' },
+    'topology':  { title: 'Rack & Balancer', subtitle: '🌐 HDFS Rack Awareness & Storage Balancer (Slide 15)' }
 };
 
 function showView(viewName) {

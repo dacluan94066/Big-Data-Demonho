@@ -978,12 +978,12 @@
                 <span class="nav-icon">🔗</span> Shared Files
             </a>
 
-            <div class="nav-label">HDFS & BIG DATA</div>
+            <div class="nav-label">HDFS & RACK TOPOLOGY</div>
             <a class="nav-item" id="nav-hdfs" onclick="showView('hdfs')">
                 <span class="nav-icon">💾</span> HDFS Status
             </a>
-            <a class="nav-item" id="nav-mapreduce" onclick="showView('mapreduce')">
-                <span class="nav-icon">⚡</span> MapReduce Engine
+            <a class="nav-item" id="nav-topology" onclick="showView('topology')">
+                <span class="nav-icon">🌐</span> Rack & Balancer
             </a>
         </div>
 
@@ -1231,36 +1231,73 @@
             </div>
 
             <!-- ======================================
-                 VIEW: MAPREDUCE ENGINE
+                 VIEW: RACK TOPOLOGY & DISK BALANCER
                  ====================================== -->
-            <div id="view-mapreduce" class="view">
-                <div style="background: linear-gradient(135deg, rgba(31,111,235,0.15), rgba(188,140,255,0.1)); border: 1px solid rgba(88,166,255,0.3); border-radius: 18px; padding: 24px; margin-bottom: 24px;">
+            <div id="view-topology" class="view">
+                <!-- Header Banner -->
+                <div style="background: linear-gradient(135deg, rgba(56,139,253,0.15), rgba(188,140,255,0.12)); border: 1px solid rgba(88,166,255,0.3); border-radius: 18px; padding: 24px; margin-bottom: 24px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
                         <div>
                             <h3 style="font-size:20px; font-weight:800; color:#58a6ff; margin:0 0 6px 0; display:flex; align-items:center; gap:10px;">
-                                ⚡ Apache Hadoop MapReduce Engine Simulator
+                                🌐 HDFS Rack Awareness & Disk Balancer (Slide 15)
                             </h3>
                             <p style="font-size:13px; color:var(--text-secondary); margin:0;">
-                                Xử lý dữ liệu phân tán song song trực tiếp trên từng HDFS Block theo nguyên lý <strong>Data Locality</strong> (Map $\rightarrow$ Shuffle/Sort $\rightarrow$ Reduce).
+                                Mô phỏng trực quan <strong>Chính sách đặt bản sao Tủ mạng (Rack Awareness Placement Policy)</strong> và <strong>Công cụ Cân bằng tải đĩa (`hdfs balancer`)</strong> của Apache HDFS.
                             </p>
-                        </div>
-                        <div style="display:flex; gap:12px; align-items:center;">
-                            <select id="mrDatasetSelect" onchange="executeMapReduceJob()" style="background: #0d1117; border:1px solid var(--border); border-radius:8px; padding:9px 14px; color:white; font-size:13px; font-weight:500; max-width:380px;">
-                                <option value="BigData_WebLogs_Dataset_2026.csv|316043776">📄 BigData_WebLogs_Dataset_2026.csv (301.4 MB - 3 Blocks)</option>
-                            </select>
-                            <button class="btn btn-primary" style="padding:10px 20px; font-size:14px; font-weight:700;" onclick="executeMapReduceJob()">
-                                ⚡ Run MapReduce Job
-                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Live MapReduce Execution Workspace Container -->
-                <div id="mapreduceResultsContainer">
-                    <div style="text-align:center; padding:60px 20px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:16px;">
-                        <div style="font-size:48px; margin-bottom:12px;">⚡</div>
-                        <h4 style="font-size:16px; color:var(--text-secondary); margin-bottom:8px;">Sẵn sàng chạy thuật toán MapReduce</h4>
-                        <p style="font-size:13px; color:var(--text-muted);">Hãy chọn file dữ liệu và nhấn nút <strong>⚡ Run MapReduce Job</strong> ở trên để bắt đầu phân tích song song.</p>
+                <!-- SECTION 1: RACK AWARENESS VISUALIZER -->
+                <div style="background: rgba(13,17,23,0.85); border: 1px solid rgba(88,166,255,0.3); border-radius: 18px; padding: 24px; margin-bottom: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
+                        <div>
+                            <h4 style="font-size:17px; font-weight:700; color:white; margin:0 0 4px 0; display:flex; align-items:center; gap:8px;">
+                                🏢 1. Mô Phỏng Thuật Toán Rack Awareness (Tủ Mạng Rack A & Rack B)
+                            </h4>
+                            <div style="font-size:12px; color:var(--text-secondary);">
+                                Đặt <strong>Replica 1</strong> tại Rack A, và <strong>Replica 2 & 3</strong> tại Rack B độc lập nhằm bảo vệ dữ liệu khi hỏng toàn bộ nguồn điện tủ mạng.
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn" style="background:linear-gradient(135deg, #da3633, #f85149); color:white; font-weight:700; border:none; padding:9px 16px; border-radius:8px;" onclick="toggleRackAOutage()">
+                                ⚡ Giả lập Sập nguồn Rack A
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Rack Container -->
+                    <div id="rackTopologyContainer">
+                        <!-- Rendered dynamically by topology.js -->
+                    </div>
+
+                    <div id="rackOutageStatus" style="margin-top:16px;"></div>
+                </div>
+
+                <!-- SECTION 2: HDFS DISK BALANCER -->
+                <div style="background: rgba(13,17,23,0.85); border: 1px solid rgba(63,185,80,0.3); border-radius: 18px; padding: 24px; margin-bottom: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
+                        <div>
+                            <h4 style="font-size:17px; font-weight:700; color:white; margin:0 0 4px 0; display:flex; align-items:center; gap:8px;">
+                                ⚖️ 2. Công Cụ Cân Bằng Tải Dung Lượng Cụm (HDFS Disk Balancer)
+                            </h4>
+                            <div style="font-size:12px; color:var(--text-secondary);">
+                                Tự động chuyển dịch HDFS Blocks từ DataNode bị quá tải (🔴 88%) sang các DataNode đang trống đĩa (🟢 24%-32%) để đạt tỷ lệ cân bằng hoàn hảo.
+                            </div>
+                        </div>
+                        <button class="btn" id="btnRunBalancer" style="background:linear-gradient(135deg, #238636, #2ea043); color:white; font-weight:700; border:none; padding:10px 20px; border-radius:8px;" onclick="runHdfsBalancer()">
+                            ⚖️ Run "hdfs balancer -threshold 10"
+                        </button>
+                    </div>
+
+                    <!-- Storage Balancer State -->
+                    <div id="balancerStateContainer">
+                        <!-- Rendered dynamically by topology.js -->
+                    </div>
+
+                    <!-- Balancer Log Output Console -->
+                    <div style="background:#010409; border:1px solid rgba(48,54,61,0.8); border-radius:10px; padding:14px; font-family:'Courier New', monospace; font-size:12px; max-height:140px; overflow-y:auto;" id="balancerLogConsole">
+                        <div style="color:var(--text-muted);">Nhấn nút <strong>Run "hdfs balancer"</strong> để khởi chạy công cụ cân bằng tải cụm...</div>
                     </div>
                 </div>
             </div>
@@ -1351,7 +1388,7 @@
     <script src="js/auth.js"></script>
     <script src="js/files.js"></script>
     <script src="js/hdfs-status.js"></script>
-    <script src="js/mapreduce.js"></script>
+    <script src="js/topology.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>
