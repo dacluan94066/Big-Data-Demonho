@@ -64,9 +64,12 @@ function showView(viewName) {
         loadHdfsStatus();
     } else if (viewName === 'shared') {
         loadSharedLinks();
-    } else if (viewName === 'mapreduce') {
-        if (typeof executeMapReduceJob === 'function') {
-            executeMapReduceJob();
+    } else if (viewName === 'topology') {
+        if (typeof renderRackTopology === 'function') {
+            renderRackTopology();
+        }
+        if (typeof renderBalancerState === 'function') {
+            renderBalancerState();
         }
     }
 }

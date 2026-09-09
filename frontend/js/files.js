@@ -322,20 +322,27 @@ async function shareFile(fileId, fileName) {
         if (!response.ok) throw new Error('HTTP ' + response.status);
 
         const data = await response.json();
+        const shareUrl = data.fullUrl || data.shareUrl || `${window.location.origin}/api/share/${data.shareToken}`;
+        const expiryDate = data.expiredAt || data.expiresAt;
 
         // Save to localStorage for shared view
         const sharedLinks = JSON.parse(localStorage.getItem('sharedLinks') || '[]');
         sharedLinks.unshift({
             fileName,
             shareToken: data.shareToken,
-            fullUrl: data.fullUrl,
-            expiredAt: data.expiredAt
+            fullUrl: shareUrl,
+            shareUrl: shareUrl,
+            expiredAt: expiryDate
         });
         localStorage.setItem('sharedLinks', JSON.stringify(sharedLinks.slice(0, 50)));
 
         // Show share modal
-        document.getElementById('shareUrlInput').value = data.fullUrl;
-        document.getElementById('shareExpiry').textContent = formatDate(data.expiredAt);
+        const inputEl = document.getElementById('shareUrlInput');
+        if (inputEl) inputEl.value = shareUrl;
+        
+        const expiryEl = document.getElementById('shareExpiry');
+        if (expiryEl) expiryEl.textContent = formatDate(expiryDate);
+        
         document.getElementById('shareModal').classList.add('show');
 
     } catch (err) {

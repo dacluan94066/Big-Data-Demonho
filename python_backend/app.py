@@ -380,10 +380,14 @@ def share_file_by_id(file_id):
                        (token, file_id, 'admin', expires_at.strftime('%Y-%m-%d %H:%M:%S')))
         conn.commit()
     conn.close()
+    url = f"{request.host_url}api/share/{token}"
+    iso_exp = expires_at.isoformat()
     return jsonify({
         'shareToken': token,
-        'shareUrl': f"{request.host_url}api/share/{token}",
-        'expiresAt': expires_at.isoformat()
+        'shareUrl': url,
+        'fullUrl': url,
+        'expiresAt': iso_exp,
+        'expiredAt': iso_exp
     })
 
 @app.route('/api/files/<int:file_id>', methods=['DELETE', 'OPTIONS'])
@@ -494,19 +498,20 @@ def create_share_link():
     })
 
 @app.route('/api/share/<share_token>', methods=['GET'])
-def get_share_info(share_token):
+@app.route('/api/share/<share_token>/download', methods=['GET'])
+def handle_share_download_or_info(share_token):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     if USE_SQLITE:
         cursor.execute('''
-            SELECT s.*, f.filename, f.file_size, f.content_type, f.uploader_username, f.upload_time
+            SELECT s.*, f.filename, f.hdfs_path, f.file_size, f.content_type, f.uploader_username, f.upload_time
             FROM share_links s JOIN files f ON s.file_id = f.id
             WHERE s.share_token = ?
         ''', (share_token,))
     else:
         cursor.execute('''
-            SELECT s.*, f.filename, f.file_size, f.content_type, f.uploader_username, f.upload_time
+            SELECT s.*, f.file_name as filename, f.file_path as hdfs_path, f.file_size, f.content_type, f.uploaded_by as uploader_username, f.uploaded_at as upload_time
             FROM share_links s JOIN files f ON s.file_id = f.id
             WHERE s.share_token = %s
         ''', (share_token,))
@@ -518,56 +523,44 @@ def get_share_info(share_token):
         return jsonify({'message': 'Link chia sẻ không tồn tại hoặc đã hết hạn'}), 404
 
     # Cập nhật số lượt truy cập
-    if USE_SQLITE:
-        cursor.execute("UPDATE share_links SET access_count = access_count + 1 WHERE share_token = ?", (share_token,))
-        conn.commit()
-    else:
-        cursor.execute("UPDATE share_links SET access_count = access_count + 1 WHERE share_token = %s", (share_token,))
+    try:
+        if USE_SQLITE:
+            cursor.execute("UPDATE share_links SET access_count = access_count + 1 WHERE share_token = ?", (share_token,))
+            conn.commit()
+        else:
+            cursor.execute("UPDATE share_links SET access_count = access_count + 1 WHERE share_token = %s", (share_token,))
+            conn.commit()
+    except Exception as e:
+        pass
         
     conn.close()
 
-    return jsonify({
-        'shareToken': row['share_token'],
-        'fileId': row['file_id'],
-        'filename': row['filename'],
-        'fileSize': row['file_size'],
-        'contentType': row['content_type'],
-        'uploaderUsername': row['uploader_username'],
-        'uploadTime': str(row['upload_time']),
-        'expiresAt': str(row['expires_at']),
-        'accessCount': row['access_count'] + 1
-    })
-
-@app.route('/api/share/<share_token>/download', methods=['GET'])
-def download_shared_file(share_token):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    if USE_SQLITE:
-        cursor.execute('''
-            SELECT f.* FROM share_links s JOIN files f ON s.file_id = f.id
-            WHERE s.share_token = ?
-        ''', (share_token,))
-    else:
-        cursor.execute('''
-            SELECT f.* FROM share_links s JOIN files f ON s.file_id = f.id
-            WHERE s.share_token = %s
-        ''', (share_token,))
-        
-    f = dict_from_row(cursor.fetchone())
-    conn.close()
-
-    if not f:
-        return jsonify({'message': 'File not found'}), 404
-
-    clean_filename = f['hdfs_path'].replace('/cloud-drive/', '')
+    filename = row.get('filename') or row.get('file_name') or 'downloaded_file'
+    hdfs_path = row.get('hdfs_path') or row.get('file_path') or f"/cloud-drive/{filename}"
+    clean_filename = hdfs_path.replace('/cloud-drive/', '')
     local_path = os.path.join(STORAGE_DIR, clean_filename)
 
+    # Nếu gọi API muốn thông tin JSON (truyền ?info=true hoặc Header Accept: application/json)
+    if request.args.get('info') == 'true' or 'application/json' in request.headers.get('Accept', ''):
+        return jsonify({
+            'shareToken': row.get('share_token'),
+            'fileId': row.get('file_id'),
+            'filename': filename,
+            'fileSize': row.get('file_size', 0),
+            'contentType': row.get('content_type', 'application/octet-stream'),
+            'uploaderUsername': row.get('uploader_username') or 'admin',
+            'uploadTime': str(row.get('upload_time') or datetime.now()),
+            'expiresAt': str(row.get('expires_at') or row.get('expired_at') or ''),
+            'accessCount': (row.get('access_count') or 0) + 1,
+            'downloadUrl': f"{request.host_url}api/share/{share_token}"
+        })
+
+    # Mặc định khi dán link lên trình duyệt: Tải trực tiếp File về máy!
     if not os.path.exists(local_path):
         with open(local_path, 'wb') as tmp:
-            tmp.write(f"Sample demo content for {f['filename']}".encode('utf-8'))
+            tmp.write(f"Sample HDFS Cloud Drive Content for {filename}".encode('utf-8'))
 
-    return send_file(local_path, as_attachment=True, download_name=f['filename'])
+    return send_file(local_path, as_attachment=True, download_name=filename)
 
 # =====================================================
 # REST APIs - HDFS CONTROLLER
