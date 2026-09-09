@@ -93,7 +93,7 @@ function renderFileTable(files, compact = false) {
                     ${compact ? '' : `<td><span class="file-path">${escapeHtml(fpath)}</span></td>`}
                     <td><span class="size-badge">${fsizeFmt}</span></td>
                     <td>
-                        <button class="btn-action" style="background:rgba(88,166,255,0.12); color:#58a6ff; border:1px solid rgba(88,166,255,0.3); font-size:11px; font-weight:600;" onclick="showBlockDetails('${escapeHtml(fname)}', ${fsize})">
+                        <button class="btn-action" style="background:rgba(88,166,255,0.12); color:#58a6ff; border:1px solid rgba(88,166,255,0.3); font-size:11px; font-weight:600;" onclick="showBlockDetails('${encodeURIComponent(fname)}', ${fsize})">
                             🧩 ${bcount} Block${bcount > 1 ? 's' : ''} (x3 Copies)
                         </button>
                     </td>
@@ -105,7 +105,7 @@ function renderFileTable(files, compact = false) {
                     </td>
                     <td>
                         <div class="actions">
-                            <button class="btn-action" style="background:rgba(188,140,255,0.15); color:#bc8cff; border:1px solid rgba(188,140,255,0.3);" onclick="showView('mapreduce'); executeMapReduceJob('${escapeHtml(fname)}', ${fsize});">
+                            <button class="btn-action" style="background:rgba(188,140,255,0.15); color:#bc8cff; border:1px solid rgba(188,140,255,0.3);" onclick="showView('mapreduce'); executeMapReduceJob('${encodeURIComponent(fname)}', ${fsize});">
                                 ⚡ MapReduce
                             </button>
                             <button class="btn-action btn-download" onclick="downloadFile(${file.id}, '${escapeHtml(fname)}')">
@@ -422,7 +422,17 @@ function escapeHtml(str) {
 // SHOW VISUAL HDFS BLOCK DETAILS MODAL
 // ================================================
 
-function showBlockDetails(fileName, fileSize) {
+function showBlockDetails(fileNameOrEncoded, fileSize) {
+    let fileName = fileNameOrEncoded;
+    try {
+        if (fileNameOrEncoded.includes('%')) {
+            fileName = decodeURIComponent(fileNameOrEncoded);
+        }
+    } catch(e) {}
+
+    const existing = document.getElementById('blockModal');
+    if (existing) existing.remove();
+
     const blockSize = 128 * 1024 * 1024; // 128 MB
     const totalBlocks = fileSize > 0 ? Math.ceil(fileSize / blockSize) : 1;
     
@@ -454,13 +464,14 @@ function showBlockDetails(fileName, fileSize) {
     }
 
     const modal = document.createElement('div');
-    modal.className = 'modal-backdrop active';
+    modal.className = 'modal-overlay show';
     modal.id = 'blockModal';
+    modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);';
     modal.innerHTML = `
-        <div class="modal" style="max-width:560px; background: #0d1117; border: 1px solid rgba(48,54,61,0.9);">
-            <div class="modal-header">
-                <div class="modal-title" style="font-size:16px;">🧩 Phân tích HDFS Block: ${escapeHtml(fileName)}</div>
-                <button class="modal-close" onclick="document.getElementById('blockModal').remove()">✕</button>
+        <div class="modal" style="max-width:560px; background: #0d1117; border: 1px solid rgba(48,54,61,0.9); border-radius: 16px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); width: 90%;">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div class="modal-title" style="font-size:16px; font-weight:700; color:white;">🧩 Phân tích HDFS Block: ${escapeHtml(fileName)}</div>
+                <button class="modal-close" style="background:none; border:none; color:var(--text-secondary); font-size:20px; cursor:pointer;" onclick="document.getElementById('blockModal').remove()">✕</button>
             </div>
             <div style="font-size:13px; color:var(--text-secondary); margin-bottom:16px; background:rgba(88,166,255,0.06); border:1px solid rgba(88,166,255,0.15); border-radius:10px; padding:12px;">
                 📄 File <strong>${escapeHtml(fileName)}</strong> (${formatBytes(fileSize)}) được HDFS tự động chia thành <strong>${totalBlocks} Block(s)</strong> (Kích thước Block chuẩn là <strong>128 MB</strong>).
@@ -469,12 +480,20 @@ function showBlockDetails(fileName, fileSize) {
                 ${blocksHtml}
             </div>
             <div class="modal-footer" style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
-                <button class="btn" style="background:linear-gradient(135deg, #1f6feb, #388bfd); color:white; font-weight:700; border:none;" onclick="document.getElementById('blockModal').remove(); showView('mapreduce'); executeMapReduceJob('${escapeHtml(fileName)}', ${fileSize});">
+                <button class="btn" style="background:linear-gradient(135deg, #1f6feb, #388bfd); color:white; font-weight:700; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;" onclick="runMapReduceForFile('${encodeURIComponent(fileName)}', ${fileSize})">
                     ⚡ Chạy MapReduce trên File này
                 </button>
-                <button class="btn btn-secondary" onclick="document.getElementById('blockModal').remove()">Đóng cửa sổ</button>
+                <button class="btn btn-secondary" style="padding:8px 16px; border-radius:8px; cursor:pointer;" onclick="document.getElementById('blockModal').remove()">Đóng cửa sổ</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
+}
+
+function runMapReduceForFile(encodedFileName, fileSize) {
+    const fileName = decodeURIComponent(encodedFileName);
+    const modal = document.getElementById('blockModal');
+    if (modal) modal.remove();
+    showView('mapreduce');
+    executeMapReduceJob(fileName, fileSize);
 }

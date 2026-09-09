@@ -9,6 +9,10 @@ function executeMapReduceJob(fileNameParam, fileSizeParam) {
     let fileName = fileNameParam;
     let fileSize = fileSizeParam;
 
+    if (fileName && fileName.includes('%')) {
+        try { fileName = decodeURIComponent(fileName); } catch(e) {}
+    }
+
     if (!fileName) {
         const select = document.getElementById('mrDatasetSelect');
         if (select && select.value) {
