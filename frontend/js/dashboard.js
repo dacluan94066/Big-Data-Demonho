@@ -33,6 +33,7 @@ const viewConfig = {
     'files':     { title: 'My Files',      subtitle: 'Quản lý file lưu trữ trên HDFS' },
     'shared':    { title: 'Shared Files',  subtitle: 'Link chia sẻ file công khai' },
     'hdfs':      { title: 'HDFS Status',   subtitle: 'Trạng thái Apache HDFS Cluster' },
+    'mapreduce': { title: 'MapReduce Engine', subtitle: '⚡ Distributed Data Processing & Log Analytics' }
 };
 
 function showView(viewName) {
@@ -63,6 +64,10 @@ function showView(viewName) {
         loadHdfsStatus();
     } else if (viewName === 'shared') {
         loadSharedLinks();
+    } else if (viewName === 'mapreduce') {
+        if (typeof executeMapReduceJob === 'function') {
+            executeMapReduceJob();
+        }
     }
 }
 

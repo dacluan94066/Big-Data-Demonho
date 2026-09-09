@@ -186,3 +186,89 @@ function renderHdfsDisconnected(data) {
             </div>`;
     }
 }
+
+// ================================================
+// FAULT TOLERANCE SIMULATION FUNCTIONS
+// ================================================
+
+async function loadClusterNodesState() {
+    try {
+        const res = await fetch('/api/hdfs/nodes/state');
+        const data = await res.json();
+
+        // Render Event Logs
+        const logsContainer = document.getElementById('clusterEventLogs');
+        if (logsContainer && data.events) {
+            logsContainer.innerHTML = data.events.map(e => {
+                let color = '#58a6ff';
+                if (e.level === 'WARNING' || e.level === 'ALERT') color = '#f85149';
+                if (e.level === 'SUCCESS') color = '#3fb950';
+                return `<div style="margin-bottom:4px; line-height:1.5;">
+                    <span style="color:var(--text-muted);">[${e.time}]</span> 
+                    <strong style="color:${color};">${e.msg}</strong>
+                </div>`;
+            }).join('');
+        }
+
+        // Update Under Replicated Count badge if exists
+        const underRepEl = document.getElementById('statUnderReplicated');
+        if (underRepEl && data.summary) {
+            underRepEl.textContent = data.summary.underReplicatedBlocks;
+            underRepEl.style.color = data.summary.underReplicatedBlocks > 0 ? '#f85149' : '#3fb950';
+        }
+    } catch (err) {
+        console.error("Failed to load cluster nodes state", err);
+    }
+}
+
+async function toggleDataNodeCrash(nodeId = 'dn2') {
+    try {
+        const res = await fetch('/api/hdfs/nodes/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: nodeId })
+        });
+        const data = await res.json();
+        if (data.node.status === 'DEAD') {
+            showToast(`🚨 DataNode ${data.node.hostname} đã sập! Under-Replicated Blocks: ${data.underReplicatedBlocks}`, 'error');
+        } else {
+            showToast(`🟢 DataNode ${data.node.hostname} đã hoạt động lại!`, 'success');
+        }
+        loadClusterNodesState();
+        loadHdfsStatus();
+    } catch (err) {
+        showToast('Lỗi giả lập DataNode', 'error');
+    }
+}
+
+async function triggerAutoHealing() {
+    try {
+        const res = await fetch('/api/hdfs/nodes/heal', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`🔄 NameNode Auto-Healing thành công! 3 blocks đã được nhân bản bù.`, 'success');
+        } else {
+            showToast(`❌ ${data.message || 'Auto-Healing thất bại'}`, 'error');
+        }
+        loadClusterNodesState();
+        loadHdfsStatus();
+    } catch (err) {
+        showToast('Lỗi Auto-Healing', 'error');
+    }
+}
+
+async function resetAllDataNodes() {
+    try {
+        await fetch('/api/hdfs/nodes/reset', { method: 'POST' });
+        showToast('🟢 Đã khôi phục 100% DataNodes về trạng thái HEALTHY', 'success');
+        loadClusterNodesState();
+        loadHdfsStatus();
+    } catch (err) {
+        showToast('Lỗi Reset DataNodes', 'error');
+    }
+}
+
+// Auto load cluster events periodically
+setInterval(loadClusterNodesState, 5000);
+loadClusterNodesState();
+

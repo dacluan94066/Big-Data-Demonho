@@ -630,6 +630,212 @@ def hdfs_ping():
         'message': 'Python HDFS Backend Service is running successfully!'
     })
 
+# -----------------------------------------------------
+# Dynamic DataNode Cluster State & Fault Tolerance Engine
+# -----------------------------------------------------
+import datetime
+import math
+import random
+
+DATANODES = [
+    {
+        'id': 'dn1',
+        'hostname': 'datanode-1.hdfs.local',
+        'ip': '192.168.1.101',
+        'rack': '/default-rack',
+        'status': 'HEALTHY',
+        'adminState': 'NORMAL_STATE',
+        'capacityGb': 500.0,
+        'usedGb': 142.5,
+        'remainingGb': 357.5,
+        'blocksCount': 42,
+        'cpuPercent': 18,
+        'ramPercent': 42
+    },
+    {
+        'id': 'dn2',
+        'hostname': 'datanode-2.hdfs.local',
+        'ip': '192.168.1.102',
+        'rack': '/default-rack',
+        'status': 'HEALTHY',
+        'adminState': 'NORMAL_STATE',
+        'capacityGb': 500.0,
+        'usedGb': 138.2,
+        'remainingGb': 361.8,
+        'blocksCount': 42,
+        'cpuPercent': 24,
+        'ramPercent': 51
+    },
+    {
+        'id': 'dn3',
+        'hostname': 'datanode-3.hdfs.local',
+        'ip': '192.168.1.103',
+        'rack': '/default-rack',
+        'status': 'HEALTHY',
+        'adminState': 'NORMAL_STATE',
+        'capacityGb': 500.0,
+        'usedGb': 145.8,
+        'remainingGb': 354.2,
+        'blocksCount': 42,
+        'cpuPercent': 15,
+        'ramPercent': 38
+    }
+]
+
+UNDER_REPLICATED_BLOCKS = 0
+CORRUPT_BLOCKS = 0
+CLUSTER_EVENTS = [
+    {'time': datetime.datetime.now().strftime("%H:%M:%S"), 'level': 'INFO', 'msg': 'NameNode v3.3.6 active on port 9000 (HDFS Protocol)'},
+    {'time': datetime.datetime.now().strftime("%H:%M:%S"), 'level': 'SUCCESS', 'msg': '3/3 DataNodes registered with 100% block integrity'},
+    {'time': datetime.datetime.now().strftime("%H:%M:%S"), 'level': 'INFO', 'msg': 'HDFS Cluster state: HEALTHY (Replication Factor x3)'}
+]
+
+def add_cluster_event(level, msg):
+    now_str = datetime.datetime.now().strftime("%H:%M:%S")
+    CLUSTER_EVENTS.insert(0, {'time': now_str, 'level': level, 'msg': msg})
+    if len(CLUSTER_EVENTS) > 20:
+        CLUSTER_EVENTS.pop()
+
+@app.route('/api/hdfs/nodes/state', methods=['GET'])
+def get_nodes_state():
+    total_cap = sum(dn['capacityGb'] for dn in DATANODES)
+    total_used = sum(dn['usedGb'] for dn in DATANODES if dn['status'] == 'HEALTHY')
+    active_nodes = sum(1 for dn in DATANODES if dn['status'] == 'HEALTHY')
+    dead_nodes = sum(1 for dn in DATANODES if dn['status'] == 'DEAD')
+    
+    return jsonify({
+        'nodes': DATANODES,
+        'summary': {
+            'totalCapacityGb': total_cap,
+            'usedCapacityGb': round(total_used, 1),
+            'remainingCapacityGb': round(total_cap - total_used, 1),
+            'activeNodes': active_nodes,
+            'deadNodes': dead_nodes,
+            'totalNodes': len(DATANODES),
+            'underReplicatedBlocks': UNDER_REPLICATED_BLOCKS,
+            'corruptBlocks': CORRUPT_BLOCKS,
+            'clusterStatus': 'HEALTHY' if dead_nodes == 0 and UNDER_REPLICATED_BLOCKS == 0 else ('WARNING' if dead_nodes > 0 else 'RECOVERING')
+        },
+        'events': CLUSTER_EVENTS
+    })
+
+@app.route('/api/hdfs/nodes/toggle', methods=['POST'])
+def toggle_node_status():
+    global UNDER_REPLICATED_BLOCKS
+    data = request.json or {}
+    node_id = data.get('id', 'dn2')
+    
+    target_node = next((dn for dn in DATANODES if dn['id'] == node_id or dn['hostname'] == node_id), None)
+    if not target_node:
+        return jsonify({'error': 'DataNode not found'}), 404
+        
+    if target_node['status'] == 'HEALTHY':
+        target_node['status'] = 'DEAD'
+        target_node['adminState'] = 'DEAD'
+        UNDER_REPLICATED_BLOCKS = 3
+        add_cluster_event('WARNING', f'🚨 HEARTBEAT TIMEOUT: Node {target_node["hostname"]} marked DEAD!')
+        add_cluster_event('ALERT', f'⚠️ NameNode Alert: 3 Blocks are UNDER-REPLICATED (Missing 1 copy on {target_node["hostname"]})')
+    else:
+        target_node['status'] = 'HEALTHY'
+        target_node['adminState'] = 'NORMAL_STATE'
+        UNDER_REPLICATED_BLOCKS = 0
+        add_cluster_event('SUCCESS', f'🟢 Node {target_node["hostname"]} re-connected! BlockReport synchronized.')
+        add_cluster_event('INFO', 'Cluster state restored to HEALTHY.')
+        
+    return jsonify({'success': True, 'node': target_node, 'underReplicatedBlocks': UNDER_REPLICATED_BLOCKS})
+
+@app.route('/api/hdfs/nodes/heal', methods=['POST'])
+def heal_cluster_blocks():
+    global UNDER_REPLICATED_BLOCKS
+    add_cluster_event('INFO', '🔄 NameNode Auto-Healing triggered: Re-balancing missing blocks...')
+    
+    active_nodes = [dn['hostname'] for dn in DATANODES if dn['status'] == 'HEALTHY']
+    if len(active_nodes) < 2:
+        add_cluster_event('ALERT', '❌ Auto-Healing failed: Insufficient active DataNodes to achieve Replication x2/x3!')
+        return jsonify({'success': False, 'message': 'Not enough active DataNodes'}), 400
+        
+    UNDER_REPLICATED_BLOCKS = 0
+    add_cluster_event('SUCCESS', f'✅ Auto-Healing complete: Re-replicated 3 missing blocks onto [{", ".join(active_nodes)}]. Block health: 100%.')
+    return jsonify({'success': True, 'underReplicatedBlocks': 0, 'message': 'Auto-healing completed successfully!'})
+
+@app.route('/api/hdfs/nodes/reset', methods=['POST'])
+def reset_cluster_nodes():
+    global UNDER_REPLICATED_BLOCKS, CORRUPT_BLOCKS
+    for dn in DATANODES:
+        dn['status'] = 'HEALTHY'
+        dn['adminState'] = 'NORMAL_STATE'
+    UNDER_REPLICATED_BLOCKS = 0
+    CORRUPT_BLOCKS = 0
+    add_cluster_event('SUCCESS', 'RESET: All DataNodes restored to HEALTHY (3/3 Active).')
+    return jsonify({'success': True})
+
+@app.route('/api/mapreduce/run', methods=['POST'])
+def run_mapreduce_job():
+    data = request.json or {}
+    filename = data.get('filename', 'BigData_WebLogs_Dataset_2026.csv')
+    file_size = data.get('fileSize', 316043776)
+    
+    block_size = 128 * 1024 * 1024
+    num_blocks = math.ceil(file_size / block_size) if file_size > 0 else 1
+    
+    mappers = []
+    active_nodes = [dn for dn in DATANODES if dn['status'] == 'HEALTHY']
+    if not active_nodes:
+        active_nodes = DATANODES
+        
+    for i in range(1, num_blocks + 1):
+        node = active_nodes[(i - 1) % len(active_nodes)]
+        b_size = block_size if i < num_blocks else (file_size - (num_blocks - 1) * block_size)
+        mappers.append({
+            'mapperId': f'MapTask_{i}',
+            'blockId': f'BLK_108492{i}',
+            'blockSize': b_size,
+            'node': node['hostname'],
+            'nodeIp': node['ip'],
+            'recordsProcessed': int(485000 * i // num_blocks),
+            'mapTimeMs': 840 + (i * 120),
+            'status': 'FINISHED'
+        })
+        
+    results = {
+        'jobId': f'job_20260910_{random.randint(1000, 9999)}',
+        'jobName': f'LogAnalytics_MapReduce_{filename}',
+        'filename': filename,
+        'fileSizeFormatted': f"{round(file_size / (1024*1024), 1)} MB",
+        'numBlocks': num_blocks,
+        'mappers': mappers,
+        'shuffleTimeMs': 340,
+        'reduceTasks': [
+            {'reducerId': 'ReduceTask_1', 'keyRange': 'HTTP_STATUS_CODES', 'recordsGrouped': 1485000, 'reduceTimeMs': 420},
+            {'reducerId': 'ReduceTask_2', 'keyRange': 'TOP_IP_ADDRESSES', 'recordsGrouped': 1485000, 'reduceTimeMs': 390}
+        ],
+        'analytics': {
+            'totalLogRecords': 1485000,
+            'httpStatusCounts': {
+                '200 OK': 1245000,
+                '301 Moved Permanently': 120500,
+                '404 Not Found': 98500,
+                '500 Internal Server Error': 21000
+            },
+            'topIPs': [
+                {'ip': '192.168.1.45', 'requests': 142300, 'country': 'Vietnam 🇻🇳'},
+                {'ip': '10.0.4.112', 'requests': 98400, 'country': 'USA 🇺🇸'},
+                {'ip': '172.16.8.99', 'requests': 76100, 'country': 'Singapore 🇸🇬'},
+                {'ip': '192.168.1.18', 'requests': 64200, 'country': 'Vietnam 🇻🇳'},
+                {'ip': '203.162.4.1', 'requests': 51900, 'country': 'Japan 🇯🇵'}
+            ],
+            'performance': {
+                'singleNodeTimeSec': round((num_blocks * 3.8), 1),
+                'hdfsMapReduceTimeSec': 1.6,
+                'speedupFactor': f"{round((num_blocks * 3.8) / 1.6, 1)}x Faster 🚀"
+            }
+        }
+    }
+    
+    add_cluster_event('INFO', f'⚡ MapReduce Job {results["jobId"]} finished in 1.6s across {num_blocks} Mappers!')
+    return jsonify(results)
+
+
 
 # -----------------------------------------------------
 # CORS Preflight & Headers Handling
