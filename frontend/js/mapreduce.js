@@ -2,6 +2,29 @@
  * Apache Hadoop MapReduce Engine Simulator JavaScript
  */
 
+async function populateMapReduceDropdown(selectedFileName) {
+    const select = document.getElementById('mrDatasetSelect');
+    if (!select) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/files`, { headers: typeof getHeaders === 'function' ? getHeaders() : {} });
+        const files = await response.json();
+
+        if (Array.isArray(files) && files.length > 0) {
+            select.innerHTML = files.map(file => {
+                const fname = file.fileName || file.filename || 'File';
+                const fsize = file.fileSize || 0;
+                const bcount = file.blockCount || Math.ceil((fsize || 1) / (128 * 1024 * 1024));
+                const formattedSize = file.formattedSize || formatBytes(fsize);
+                const isSel = (selectedFileName && (selectedFileName === fname || selectedFileName === file.filename)) ? 'selected' : '';
+                return `<option value="${escapeHtml(fname)}|${fsize}" ${isSel}>📄 ${escapeHtml(fname)} (${formattedSize} - ${bcount} Block${bcount > 1 ? 's' : ''})</option>`;
+            }).join('');
+        }
+    } catch (err) {
+        console.error("Failed to populate MapReduce dropdown", err);
+    }
+}
+
 function executeMapReduceJob(fileNameParam, fileSizeParam) {
     const container = document.getElementById('mapreduceResultsContainer');
     if (!container) return;
@@ -12,6 +35,9 @@ function executeMapReduceJob(fileNameParam, fileSizeParam) {
     if (fileName && fileName.includes('%')) {
         try { fileName = decodeURIComponent(fileName); } catch(e) {}
     }
+
+    // Refresh dropdown to display actual user files
+    populateMapReduceDropdown(fileName);
 
     if (!fileName) {
         const select = document.getElementById('mrDatasetSelect');
