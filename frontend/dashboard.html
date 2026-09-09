@@ -1131,18 +1131,23 @@
                 <div class="hdfs-status-grid" id="hdfsClusterInfo">
                     <div class="hdfs-stat-card">
                         <div class="label">NameNode</div>
-                        <div class="value" style="font-size:16px; font-family:monospace;" id="hdfsNameNode">—</div>
+                        <div class="value" style="font-size:15px; font-family:monospace;" id="hdfsNameNode">—</div>
                         <div class="sublabel">Web UI: localhost:9870</div>
                     </div>
                     <div class="hdfs-stat-card">
                         <div class="label">HDFS Root Path</div>
-                        <div class="value" style="font-size:16px; font-family:monospace;" id="hdfsRootPath">—</div>
+                        <div class="value" style="font-size:15px; font-family:monospace;" id="hdfsRootPath">—</div>
                         <div class="sublabel">Thư mục lưu file</div>
                     </div>
                     <div class="hdfs-stat-card">
-                        <div class="label">DataNodes</div>
+                        <div class="label">DataNodes Sống</div>
                         <div class="value" id="hdfsDataNodes">—</div>
-                        <div class="sublabel">Đang hoạt động</div>
+                        <div class="sublabel" id="hdfsDataNodesSub">3/3 Active</div>
+                    </div>
+                    <div class="hdfs-stat-card">
+                        <div class="label">Block Thiếu Bản Sao</div>
+                        <div class="value" id="statUnderReplicated" style="color:var(--success);">0</div>
+                        <div class="sublabel" id="statUnderReplicatedSub">Under-Replicated Blocks</div>
                     </div>
                     <div class="hdfs-stat-card">
                         <div class="label">Files trên HDFS</div>
@@ -1166,6 +1171,17 @@
                             <button class="btn btn-danger-btn" style="font-size:12px; font-weight:600;" onclick="toggleDataNodeCrash('dn2')">💥 Tắt DataNode-2 (Crash)</button>
                             <button class="btn" style="background:rgba(88,166,255,0.15); color:#58a6ff; border-color:rgba(88,166,255,0.4); font-size:12px; font-weight:600;" onclick="triggerAutoHealing()">🔄 NameNode Auto-Healing</button>
                             <button class="btn" style="background:rgba(63,185,80,0.15); color:#3fb950; border-color:rgba(63,185,80,0.4); font-size:12px; font-weight:600;" onclick="resetAllDataNodes()">🟢 Reset Khôi Phục All</button>
+                        </div>
+                    </div>
+
+                    <!-- Live Dynamic DataNodes Cards Grid -->
+                    <div style="margin-bottom:16px;">
+                        <div style="font-size:13px; font-weight:700; color:var(--text-secondary); margin-bottom:10px; display:flex; justify-content:space-between; align-align:center;">
+                            <span>🖥️ Trạng thái trực quan 3 DataNodes trong HDFS Cluster:</span>
+                            <span id="clusterHealthBadge" style="font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(63,185,80,0.15); color:#3fb950; font-weight:700;">✓ CLUSTER HEALTHY</span>
+                        </div>
+                        <div id="dataNodeCardsGrid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+                            <!-- Rendered dynamically via hdfs-status.js -->
                         </div>
                     </div>
                     

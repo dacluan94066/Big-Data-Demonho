@@ -210,11 +210,90 @@ async function loadClusterNodesState() {
             }).join('');
         }
 
+        // Render 3 Visual DataNodes Cards Grid
+        const gridContainer = document.getElementById('dataNodeCardsGrid');
+        if (gridContainer && data.nodes) {
+            gridContainer.innerHTML = data.nodes.map(node => {
+                const isHealthy = node.status === 'HEALTHY';
+                const bgStyle = isHealthy 
+                    ? 'background:rgba(22,27,34,0.95); border:1px solid rgba(63,185,80,0.3);' 
+                    : 'background:rgba(40,16,20,0.95); border:2px solid #f85149; box-shadow:0 0 16px rgba(248,81,73,0.3);';
+                
+                const badgeStyle = isHealthy 
+                    ? 'background:rgba(63,185,80,0.15); color:#3fb950;' 
+                    : 'background:#f85149; color:white; font-weight:800;';
+                    
+                return `
+                    <div style="${bgStyle} border-radius:12px; padding:14px; position:relative; transition:all 0.3s ease;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <div style="font-weight:700; font-size:13px; color:white;">🖥️ ${node.hostname}</div>
+                            <span style="font-size:11px; padding:2px 8px; border-radius:4px; ${badgeStyle}">
+                                ${isHealthy ? '🟢 HEALTHY' : '🚨 DEAD (TIMEOUT)'}
+                            </span>
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">
+                            IP: <code>${node.ip}</code> | Rack: <code>${node.rack}</code>
+                        </div>
+                        
+                        <div style="font-size:12px; color:var(--text-secondary); line-height:1.6;">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>Dung lượng đĩa:</span>
+                                <strong style="color:${isHealthy ? 'var(--text-primary)' : '#f85149'};">${isHealthy ? `${node.usedGb} GB / ${node.capacityGb} GB` : 'DISCONNECTED'}</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>Tải CPU / RAM:</span>
+                                <span>${isHealthy ? `${node.cpuPercent}% / ${node.ramPercent}%` : '0%'}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>Số Block đang lưu:</span>
+                                <span>${isHealthy ? `${node.blocksCount} Blocks` : '0 Blocks (Offline)'}</span>
+                            </div>
+                        </div>
+
+                        ${!isHealthy ? `
+                            <div style="margin-top:10px; background:rgba(248,81,73,0.15); border:1px solid rgba(248,81,73,0.3); border-radius:6px; padding:6px 10px; font-size:11px; color:#f85149; font-weight:600;">
+                                ⚠️ Mất kết nối Heartbeat (>10m)! NameNode đang báo nguy cấp.
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Cluster Health Badge
+        const healthBadge = document.getElementById('clusterHealthBadge');
+        if (healthBadge && data.summary) {
+            if (data.summary.deadNodes > 0) {
+                healthBadge.style.background = '#f85149';
+                healthBadge.style.color = 'white';
+                healthBadge.textContent = `🚨 UNHEALTHY (${data.summary.deadNodes} DEAD DATANODE)`;
+            } else if (data.summary.underReplicatedBlocks > 0) {
+                healthBadge.style.background = 'rgba(227,179,65,0.2)';
+                healthBadge.style.color = '#e3b341';
+                healthBadge.textContent = `⚠️ UNDER-REPLICATED (${data.summary.underReplicatedBlocks} BLOCKS)`;
+            } else {
+                healthBadge.style.background = 'rgba(63,185,80,0.15)';
+                healthBadge.style.color = '#3fb950';
+                healthBadge.textContent = '✓ CLUSTER HEALTHY (3/3 ACTIVE)';
+            }
+        }
+
         // Update Under Replicated Count badge if exists
         const underRepEl = document.getElementById('statUnderReplicated');
         if (underRepEl && data.summary) {
             underRepEl.textContent = data.summary.underReplicatedBlocks;
             underRepEl.style.color = data.summary.underReplicatedBlocks > 0 ? '#f85149' : '#3fb950';
+        }
+
+        // Update top stats
+        const activeNodesEl = document.getElementById('hdfsDataNodes');
+        const activeNodesSubEl = document.getElementById('hdfsDataNodesSub');
+        if (activeNodesEl && data.summary) {
+            activeNodesEl.textContent = `${data.summary.activeNodes} / ${data.summary.totalNodes}`;
+            activeNodesEl.style.color = data.summary.deadNodes > 0 ? '#f85149' : 'var(--text-primary)';
+            if (activeNodesSubEl) {
+                activeNodesSubEl.textContent = data.summary.deadNodes > 0 ? `⚠️ ${data.summary.deadNodes} Node bị sập (DEAD)` : '3/3 Active';
+            }
         }
     } catch (err) {
         console.error("Failed to load cluster nodes state", err);
