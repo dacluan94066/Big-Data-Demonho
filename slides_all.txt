@@ -1,0 +1,306 @@
+Total slides: 19
+
+=== SLIDE 1 ===
+BÁO CÁO CHUYÊN ĐỀ BIG DATA
+KIẾN TRÚC & CƠ CHẾ LƯU TRỮ
+PHÂN TÁN APACHE HDFS
+Nền tảng lưu trữ dữ liệu lớn & xu hướng chuyển dịch Cloud Data Lake
+NHÓM THỰC HIỆN
+Nguyễn Đắc Luận
+MSSV: 2001230487
+Đỗ Đình Độ
+MSSV: 2001230179
+
+=== SLIDE 2 ===
+Nguyên lý vận hành
+Ví Dụ MapReduce — Bài Toán WordCount
+WordCount — bài toán đếm tần suất xuất hiện của mỗi từ trong văn bản — là ví dụ kinh điển giúp minh hoạ trực quan cách MapReduce xử lý dữ liệu song song qua ba giai đoạn Map, Shuffle và Reduce.
+SƠ ĐỒ XỬ LÝ — MAP  →  SHUFFLE  →  REDUCE
+Map: sinh cặp <word,1> cho từng từ   →   Shuffle: gom nhóm theo từ khoá   →   Reduce: cộng tổng thành <word, tổng số lần>
+APACHE HDFS  ·  BIG DATA
+10
+
+=== SLIDE 3 ===
+Quy trình vận hành
+Quy Trình Đọc Dữ Liệu (Read Pipeline)
+1
+open()
+Client gửi yêu cầu đọc file tới NameNode.
+2
+Tra cứu
+NameNode tra Metadata, trả về danh sách block & IP DataNode gần Client nhất.
+3
+Kết nối trực tiếp
+Client kết nối thẳng đến DataNode để đọc — không qua NameNode.
+4
+Chuyển tiếp
+Đọc hết 1 block, Client tự động chuyển sang DataNode tiếp theo.
+VÍ DỤ
+File report.csv có Block A ở Node 1 và Block B ở Node 4. Client hỏi NameNode đúng một lần, sau đó tự kéo byte từ Node 1 rồi đến Node 4 — NameNode không bị nghẽn cổ chai (bottleneck).
+APACHE HDFS  ·  BIG DATA
+11
+
+=== SLIDE 4 ===
+Quy trình vận hành
+Quy Trình Ghi Dữ Liệu Theo Đường Ống (Write Pipeline)
+Client tạo file mới → NameNode cấp danh sách 3 DataNode (A, B, C) → dữ liệu chia thành gói tin (Packets ~64 KB) và truyền theo đường ống:
+Client
+Node A
+Node B
+Node C
+Ack (xác nhận) →  ngược lại  C → B → A → Client cho từng gói tin
+1
+Client yêu cầu NameNode tạo file mới; NameNode kiểm tra quyền và cấp quyền ghi.
+2
+NameNode cấp danh sách 3 DataNode để lưu trữ (VD: Node A, B, C).
+3
+Client chia nhỏ block thành các gói tin (Packets, cỡ ~64 KB).
+4
+Đường ống: Client → A → B → C, mỗi node ghi rồi chuyển tiếp ngay.
+APACHE HDFS  ·  BIG DATA
+12
+
+=== SLIDE 5 ===
+Độ tin cậy
+Cơ Chế Tự Phục Hồi Dữ Liệu (Fault Tolerance)
+TÌNH HUỐNG:  DataNode số 3 bị hỏng ổ cứng hoặc mất nguồn đột ngột
+1
+Phát hiện
+Sau 10 phút không nhận Heartbeat từ Node 3, NameNode đánh dấu node này đã chết.
+2
+Quét metadata
+NameNode phát hiện các block trên Node 3 chỉ còn 2 bản sao (thiếu 1 so với chuẩn).
+3
+Nhân bản lại
+NameNode ra lệnh cho Node 1 hoặc 2 (còn giữ bản sao) nhân bản block thiếu sang Node 5 còn trống.
+4
+Phục hồi
+Cụm trở lại trạng thái an toàn với Replication Factor = 3 mà không cần kỹ sư can thiệp thủ công.
+APACHE HDFS  ·  BIG DATA
+13
+
+=== SLIDE 6 ===
+Điểm yếu cốt tử
+Vấn Đề “File Nhỏ” (The Small Files Problem)
+HDFS tối ưu cho file lớn, hoạt động cực kỳ kém hiệu quả khi lưu hàng triệu file nhỏ (vài KB).
+1,000,000
+file, mỗi file 1 KB
+Tổng dữ liệu thô chỉ ~1 GB
+150 bytes
+metadata RAM / file
+Mỗi file vẫn tính là 1 block
+150 MB
+RAM NameNode bị tốn
+1.000.000 × 150 bytes
+Hậu quả: NameNode cạn kiệt RAM trong khi ổ cứng DataNode vẫn còn trống rỗng hàng Terabyte.
+GIẢI PHÁP
+Sử dụng Hadoop Archive (HAR), nén SequenceFile, hoặc gộp file trước khi đưa vào HDFS.
+APACHE HDFS  ·  BIG DATA
+14
+
+=== SLIDE 7 ===
+Góc nhìn hiện đại
+Hạn Chế Vận Hành HDFS Theo Góc Nhìn Databricks
+1
+Khớp cứng tính toán & lưu trữ
+CPU, RAM và ổ đĩa nằm chung một máy chủ vật lý. VD: chỉ muốn thêm 50 TB lưu trữ dữ liệu cũ nhưng vẫn phải mua thêm server đầy đủ CPU/RAM đắt đỏ.
+2
+Gánh nặng bảo trì phần cứng
+Phải duy trì phòng server, điện làm mát, thay thế linh kiện hỏng hóc liên tục.
+3
+Điểm nghẽn NameNode (SPOF)
+NameNode là điểm yếu chí mạng — nếu gặp sự cố, toàn bộ cụm dừng hoạt động (giảm bớt nhờ High Availability Active/Standby).
+APACHE HDFS  ·  BIG DATA
+15
+
+=== SLIDE 8 ===
+So sánh
+HDFS vs. Cloud Object Storage
+Tiêu chí
+Apache HDFS (On-Premise)
+Cloud Storage (S3, ADLS, GCS)
+Kiến trúc
+Gắn chặt Lưu trữ và Tính toán
+Tách biệt hoàn toàn (Decoupled)
+Chi phí lưu trữ
+Cao (mua phần cứng trước, bảo trì)
+Rất thấp (trả theo dung lượng thực tế)
+Khả năng mở rộng
+Thủ công theo cụm máy chủ vật lý
+Mở rộng vô hạn tức thì theo yêu cầu
+Độ bền dữ liệu
+Dựa vào nhân bản 3x (tốn đĩa)
+99.999999999% (11 số 9) — Erasure Coding
+Quản trị
+Phức tạp, cần kỹ sư hạ tầng chuyên môn
+Serverless, không cần bảo trì hạ tầng
+APACHE HDFS  ·  BIG DATA
+16
+
+=== SLIDE 9 ===
+Xu hướng
+Vị Trí Của HDFS Trong Kỷ Nguyên Cloud Data Lake
+HDFS không biến mất: vẫn là lựa chọn hàng đầu cho các trung tâm dữ liệu On-Premise của khối Ngân hàng, Tài chính, Quân đội, Viễn thông — nhờ yêu cầu khắt khe về bảo mật và chủ quyền dữ liệu.
+MÔ HÌNH LAI (HYBRID ARCHITECTURE)
+HDFS — On-Premise
+Dữ liệu nhạy cảm được lưu và tiền xử lý tại chỗ, đảm bảo bảo mật & chủ quyền dữ liệu.
+Nền tảng Đám mây hiện đại
+Dữ liệu phục vụ phân tích chuyên sâu được chuyển tiếp lên Databricks Lakehouse, Apache Spark, Delta Lake.
+APACHE HDFS  ·  BIG DATA
+17
+
+=== SLIDE 10 ===
+TỔNG KẾT & THẢO LUẬN
+3 Bài Học Kiến Trúc Cốt Lõi Từ HDFS
+1
+Phân tán dữ liệu thành khối lớn (128 MB) kết hợp nhân bản 3 lần giúp chạy an toàn trên phần cứng giá rẻ.
+2
+Nguyên lý Data Locality — chuyển mã đến dữ liệu — giải quyết triệt để bài toán nghẽn mạng.
+3
+Xu hướng hiện đại dịch chuyển từ mô hình khớp cứng sang tách biệt Tính toán và Lưu trữ trên Đám mây.
+APACHE HDFS  ·  BIG DATA
+18
+
+=== SLIDE 11 ===
+APACHE HDFS  ·  BIG DATA
+19
+DEMO
+
+=== SLIDE 12 ===
+Bối cảnh
+Thách Thức Big Data & Giới Hạn CSDL Truyền Thống
+1
+Bùng nổ dữ liệu
+Tăng trưởng cấp số nhân từ ứng dụng di động, mạng xã hội, thiết bị IoT.
+2
+Bế tắc của Scale-up
+Nâng cấp RAM/CPU một máy chủ duy nhất quá đắt đỏ, chạm trần vật lý và nghẽn cổ chai I/O đĩa cứng.
+3
+Giải pháp: Scale-out
+Kết nối hàng ngàn máy tính thông thường (commodity hardware) thành một cụm duy nhất.
+VÍ DỤ THỰC TẾ
+Walmart
+1 triệu+
+giao dịch khách hàng mỗi giờ
+≈ 2.5 PB
+dữ liệu nạp vào mỗi ngày — RDBMS truyền thống không thể lưu trữ hay truy vấn nổi khối lượng này.
+APACHE HDFS  ·  BIG DATA
+02
+
+=== SLIDE 13 ===
+Giới thiệu
+Tổng Quan Về Apache
+HDFS (
+Hadoop Distributed File
+System)
+Định nghĩa
+Hệ thống tệp phân tán mã nguồn mở của Apache, lấy cảm hứng từ Google File System (GFS).
+Mục tiêu
+Lưu trữ các tập tin có dung lượng từ Gigabytes tới Petabytes trên cụm phần cứng phổ thông, giá rẻ.
+TRIẾT LÝ CỐT LÕI
+“Write Once, Read Many” (WORM)
+Ghi một lần, đọc tuần tự nhiều lần. HDFS không hỗ trợ sửa đổi nội dung ngẫu nhiên ở giữa file — nhằm đơn giản hoá tính nhất quán dữ liệu.
+APACHE HDFS  ·  BIG DATA
+03
+
+=== SLIDE 14 ===
+Cơ chế lưu trữ
+Cơ Chế Phân Khối Dữ Liệu (Data Blocks)
+HDFS chia nhỏ file lớn thành các khối độc lập (Block). Kích thước mặc định 128 MB — hệ điều hành thông thường chỉ 4 KB. Kích thước lớn giúp giảm số block cần quản lý, tiết kiệm RAM của NameNode và tối ưu tốc độ đọc tuần tự (Disk Seek Time).
+VÍ DỤ TRỰC QUAN — FILE LOG 300 MB
+file.log — 300 MB
+Block 1
+128 MB
+Block 2
+128 MB
+Block 3
+44 MB
+Lưu ý: Block 3 chỉ chiếm đúng 44 MB đĩa thực tế — HDFS không tốn đủ 128 MB cho phần dư.
+Lý do chọn kích thước lớn
+Giảm số lượng block cần quản lý → tiết kiệm RAM của NameNode và tối ưu tốc độ đọc tuần tự (giảm số lần disk seek).
+APACHE HDFS  ·  BIG DATA
+04
+
+=== SLIDE 15 ===
+Cơ chế lưu trữ
+Nhân Bản & Nhận Biết Tủ Mạng (Replication & Rack Awareness)
+Replication Factor mặc định = 3. Thuật toán Rack Awareness quyết định vị trí đặt 3 bản sao trên cụm:
+Rack A
+Node 1
+Bản sao 1
+Rack B
+Node 2
+Bản sao 2
+Node 3
+Bản sao 3
+Client
+Vì sao khác Rack?
+Bản sao 2 & 3 đặt ở Rack khác Rack chứa bản sao 1 (nhưng cùng nhau) để nếu một tủ mạng mất điện, dữ liệu vẫn an toàn và không gián đoạn.
+VÍ DỤ TÍNH TOÁN
+File 300 MB (3 block) × Replication = 3  →  9 blocks phân tán, cần 900 MB dung lượng vật lý.
+900 MB
+APACHE HDFS  ·  BIG DATA
+05
+
+=== SLIDE 16 ===
+Kiến trúc
+Kiến Trúc Master / Worker Trong HDFS
+NameNode
+Master — Bộ não điều khiển trung tâm
+VAI TRÒ
+Bộ não điều khiển trung tâm
+NHIỆM VỤ CHÍNH
+Quản lý cây thư mục (Namespace), quyền truy cập và bảng vị trí block
+GIAO TIẾP
+Phát lệnh tạo, xoá, nhân bản khối
+DataNode
+Worker — Cơ bắp lưu trữ vật lý
+VAI TRÒ
+Cơ bắp lưu trữ vật lý
+NHIỆM VỤ CHÍNH
+Lưu trữ dữ liệu thô dạng block trên ổ đĩa; thực hiện đọc/ghi
+GIAO TIẾP
+Gửi Heartbeat (3s/lần) báo cáo trạng thái “còn sống” và danh sách block
+APACHE HDFS  ·  BIG DATA
+06
+
+=== SLIDE 17 ===
+Kiến trúc
+Sơ Đồ Trực Quan — Kiến Trúc Master/Slave
+Toàn cảnh một cụm Hadoop: 1 Master Node điều phối nhiều Slave Node. Mỗi Slave vừa lưu trữ dữ liệu (DataNode) vừa tham gia tính toán (Node Manager, Map/Reduce) — đúng theo nguyên lý Data Locality.
+SƠ ĐỒ — MASTER NODE & SLAVE NODE
+NameNode (Master) quản lý Namespace & vị trí block  →  DataNode (Slave) lưu dữ liệu thô  →  Node Manager/Map-Reduce xử lý tính toán ngay tại đó
+APACHE HDFS  ·  BIG DATA
+07
+
+=== SLIDE 18 ===
+Kiến trúc
+Bộ Não NameNode & Siêu Dữ Liệu (Metadata)
+Metadata gồm: cây thư mục, quyền hạn người dùng, danh sách block ID và danh sách DataNode tương ứng.
+F
+FSImage
+Bản chụp nhanh (snapshot) toàn bộ trạng thái hệ thống tệp.
+E
+EditLog
+Nhật ký ghi lại mọi thay đổi tức thời phát sinh (tạo, xoá, đổi tên).
+YÊU CẦU RAM
+Toàn bộ metadata được nạp vào RAM để tra cứu tức thì.
+~150 bytes
+RAM tiêu tốn / 1 block metadata
+APACHE HDFS  ·  BIG DATA
+08
+
+=== SLIDE 19 ===
+Nguyên lý vận hành
+Nguyên Lý “Data Locality” (Chuyển Mã Đến Dữ Liệu)
+“Chuyển mã tính toán đến nơi lưu trữ dữ liệu rẻ hơn nhiều so với việc chuyển dữ liệu đến mã tính toán.”
+Chậm
+Cách truyền thống
+Kéo file log 100 GB qua mạng về máy chủ để tìm dòng lỗi.
+Vài phút nghẽn mạng
+Tối ưu
+HDFS + MapReduce
+Gửi đoạn mã tìm kiếm (vài KB) chạy trực tiếp trên DataNode đang giữ file log.
+Kết quả trả về chỉ vài byte
+APACHE HDFS  ·  BIG DATA
+09

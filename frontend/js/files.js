@@ -251,8 +251,14 @@ async function uploadFile() {
         clearInterval(progressInterval);
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || 'Upload thất bại');
+            let errMsg = 'Upload thất bại';
+            try {
+                const err = await response.json();
+                errMsg = err.error || err.message || errMsg;
+            } catch (e) {
+                errMsg = `Lỗi hệ thống server (${response.status})`;
+            }
+            throw new Error(errMsg);
         }
 
         const result = await response.json();

@@ -633,7 +633,6 @@ def hdfs_ping():
 # -----------------------------------------------------
 # Dynamic DataNode Cluster State & Fault Tolerance Engine
 # -----------------------------------------------------
-import datetime
 import math
 import random
 
@@ -685,13 +684,13 @@ DATANODES = [
 UNDER_REPLICATED_BLOCKS = 0
 CORRUPT_BLOCKS = 0
 CLUSTER_EVENTS = [
-    {'time': datetime.datetime.now().strftime("%H:%M:%S"), 'level': 'INFO', 'msg': 'NameNode v3.3.6 active on port 9000 (HDFS Protocol)'},
-    {'time': datetime.datetime.now().strftime("%H:%M:%S"), 'level': 'SUCCESS', 'msg': '3/3 DataNodes registered with 100% block integrity'},
-    {'time': datetime.datetime.now().strftime("%H:%M:%S"), 'level': 'INFO', 'msg': 'HDFS Cluster state: HEALTHY (Replication Factor x3)'}
+    {'time': datetime.now().strftime("%H:%M:%S"), 'level': 'INFO', 'msg': 'NameNode v3.3.6 active on port 9000 (HDFS Protocol)'},
+    {'time': datetime.now().strftime("%H:%M:%S"), 'level': 'SUCCESS', 'msg': '3/3 DataNodes registered with 100% block integrity'},
+    {'time': datetime.now().strftime("%H:%M:%S"), 'level': 'INFO', 'msg': 'HDFS Cluster state: HEALTHY (Replication Factor x3)'}
 ]
 
 def add_cluster_event(level, msg):
-    now_str = datetime.datetime.now().strftime("%H:%M:%S")
+    now_str = datetime.now().strftime("%H:%M:%S")
     CLUSTER_EVENTS.insert(0, {'time': now_str, 'level': level, 'msg': msg})
     if len(CLUSTER_EVENTS) > 20:
         CLUSTER_EVENTS.pop()
